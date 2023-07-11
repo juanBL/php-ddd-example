@@ -49,9 +49,11 @@ composer-require-module: CMD=require $(module)
 composer-require-module: INTERACTIVE=-ti --interactive
 
 .PHONY: composer
-composer composer-install composer-update composer-require composer-require-module: composer-env-file
-	@docker run --rm $(INTERACTIVE) --volume $(current-dir):/app --user $(id -u):$(id -g) \
-		composer:2.3.7 $(CMD) \
+composer composer-install composer-update:
+	@docker run --rm --interactive --user $(id -u):$(id -g) \
+		--volume $(current-dir):/app \
+		--volume ${COMPOSER_HOME:-$HOME/.composer}:/tmp \
+		clevyr/prestissimo $(CMD) \
 			--ignore-platform-reqs \
 			--no-ansi \
 			--no-interaction
