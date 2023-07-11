@@ -13,29 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Compose
-        uses: ndeloof/install-compose-action@v0.0.1
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
         with:
-          version: latest
-
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/docker-layers
-          key: ${{ runner.os }}-docker-layers-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-docker-layers-
-
-      - run: docker compose pull
-
-      - name: 🎻 Install dependencies
-        run: make composer-install
-
-      - name: 🐳 Build environment using cache
-        run: |
-          export DOCKER_BUILDKIT=1
-          export COMPOSE_DOCKER_CLI_BUILD=1
-          ENV=dev docker compose -f docker-compose.yml build
-
-      - name: 🐳 Start all the environment
-        run: make up-dev
+          path: /tmp/composer-cache
+          key: ${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
