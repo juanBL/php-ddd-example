@@ -57,3 +57,10 @@ composer composer-install composer-update:
 			--ignore-platform-reqs \
 			--no-ansi \
 			--no-interaction
+
+parallel-test:
+	@docker exec codelytv-php_ddd_skeleton-php make run-parallel-tests
+
+run-parallel-tests:
+	mkdir -p build/test_results/phpunit
+	parallel --gnu -a tests.parallel || false

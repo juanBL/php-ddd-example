@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     bash \
     curl \
     libfcgi-bin \
+    parallel \
     && rm -rf /var/lib/apt/lists/*
 
 
