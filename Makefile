@@ -1,3 +1,14 @@
+# Setup ————————————————————————————————————————————————————————————————————————
+current-dir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+# Executables: local
+DOCKER-EXEC   	  		= docker
+DOCKER_COMPOSE-EXEC   	= docker # todo: Docker Compose is now in the Docker CLI
+
+## —— folders —————————————————————————————————————————————————————————————————
+
+current-dir 		:= $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
 ## —— Docker  ————————————————————————————————————————————————————————
 up-dev:
 	ENV=dev docker compose \
