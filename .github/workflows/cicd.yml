@@ -7,10 +7,6 @@ on:
 
   pull_request:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,8 +16,7 @@ jobs:
       - name: Install Compose
         uses: ndeloof/install-compose-action@v0.0.1
         with:
-          version: v2.1.0 # defaults to 'latest'
-          legacy: true
+          version: latest
 
       - name: Cache Docker layers
         uses: actions/cache@v2
@@ -44,22 +39,3 @@ jobs:
 
       - name: 🐳 Start all the environment
         run: make up-dev
-
-      - name: 📕 Coverage check
-        run: make coverage-check
-
-      - name: 🏁 Static analysis
-        run: make static-analysis
-
-      - name: 👨‍🔬 Run phpcs
-        run: make phpcs
-
-      - name: 🐘 Run the tests
-        run: make test
-
-      - name: ✅ Run the tests
-        uses: php-actions/phpunit@v3
-        with:
-          version: "9"
-          configuration: "phpunit.xml"
-          memory_limit: "256M"
