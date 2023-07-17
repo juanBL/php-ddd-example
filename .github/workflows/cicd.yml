@@ -56,5 +56,5 @@ jobs:
           push: true
           target: all-in-one
           #tags: ${{ steps.meta.outputs.tags }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
+          tags: ${{ env.REGISTRY }}/juanbl/php-ddd-example:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/juanbl/php-ddd-example:all-in-one-latest
           labels: ${{ steps.meta.outputs.labels }}
