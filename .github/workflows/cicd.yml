@@ -62,6 +62,7 @@ jobs:
           platforms: linux/amd64
           push: true
           target: all-in-one
-          #tags: ${{ steps.meta.outputs.tags }}
           tags: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-latest
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-latest
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-latest,mode=max
