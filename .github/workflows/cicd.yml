@@ -17,11 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: set lower case owner name
+      - name: set lower case gh repository name
         run: |
-          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+          echo "GH_LOWER_CASE=${GH_REPO_LOWER_CASE,,}" >>${GITHUB_ENV}
         env:
-          OWNER: '${{ github.repository }}'
+          GH_REPO_LOWER_CASE: '${{ github.repository }}'
 
 
       - name: Cache Composer dependencies
@@ -31,12 +31,6 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
-            
-            
-            
-            
-
-
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2.4.1
@@ -62,7 +56,7 @@ jobs:
           platforms: linux/amd64
           push: true
           target: all-in-one
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-latest
+          tags: ${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER_LC }}:all-in-one-latest,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest,mode=max
