@@ -19,4 +19,4 @@ jobs:
 
       - name: downcase REPO
         run: |
-          echo "REPO=${GITHUB_REPOSITORY,,}" >>${IMAGE_NAME}
+          echo "REPO=${github.repository,,}" >>${IMAGE_NAME}
