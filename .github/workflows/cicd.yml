@@ -22,3 +22,4 @@ jobs:
           echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
         env:
           OWNER: '${{ github.repository }}'
+      - run: echo "$OWNER"
