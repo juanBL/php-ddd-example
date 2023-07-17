@@ -47,14 +47,6 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: Establecer cadena de texto
-        id: establecer-cadena
-        run: echo "::set-output name=mi_cadena::${{ env.IMAGE_NAME }}"
-
-      - name: Convertir cadena de texto a minúsculas
-        id: minusculas
-        run: echo "::set-output name=mi_cadena_minusculas::${{ steps.establecer-cadena.outputs.mi_cadena | toLowerCase }}"
-
 
       - name: Build and push all-in-one
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
@@ -64,5 +56,5 @@ jobs:
           push: true
           target: all-in-one
           #tags: ${{ steps.meta.outputs.tags }}
-          tags: ${{ env.REGISTRY }}/${{ steps.minusculas.outputs.mi_cadena_minusculas }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ steps.minusculas.outputs.mi_cadena_minusculas }}:all-in-one-latest
+          tags: ${{ env.REGISTRY }}/ecosystem:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/ecosystem:all-in-one-latest
           labels: ${{ steps.meta.outputs.labels }}
