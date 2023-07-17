@@ -17,6 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: downcase REPO
+      - name: set lower case owner name
         run: |
-          echo "REPO=${github.repository,,}" >>${IMAGE_NAME}
+          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository }}'
