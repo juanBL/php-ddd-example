@@ -55,6 +55,6 @@ jobs:
           platforms: linux/amd64
           push: true
           target: all-in-one
-          tags: ${{ steps.meta.outputs.tags }}
-          #tags: ${{ env.REGISTRY }}/test:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/test:all-in-one-latest
+          #tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME | toLowerCase }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME | toLowerCase }}:all-in-one-latest
           labels: ${{ steps.meta.outputs.labels }}
