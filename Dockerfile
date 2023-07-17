@@ -1,7 +1,6 @@
 ARG PHP_VERSION="8.2.7-fpm-bullseye"
 ARG PHP_EXT_INSTALLER_VERSION=2.1.10
 ARG COMPOSER_VERSION=latest
-ARG NODE_VERSION="18.15.0-bullseye"
 
 # --------------------------------------------
 # base stage
