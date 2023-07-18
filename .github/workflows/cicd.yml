@@ -183,6 +183,7 @@ jobs:
           DOES_DEPLOYMENT_EXISTS_DEV=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev >/dev/null 2>&1 && echo "1" || echo "0")
           echo "::set-output name=api_private_deploy_exist_dev::$DOES_DEPLOYMENT_EXISTS_DEV"
 
+
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -200,6 +201,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      - name: set lower case gh repository name
+        run: |
+          echo "GH_LOWER_CASE=${GH_REPO_LOWER_CASE,,}" >>${GITHUB_ENV}
+        env:
+          GH_REPO_LOWER_CASE: '${{ github.repository }}'
 
       - name: Log in to the Container registry
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
@@ -245,10 +252,10 @@ jobs:
           target: ${{ matrix.image }}
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}:latest
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}:${{ github.head_ref || github.ref_name }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.image }}-latest,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}-${{ matrix.image }}:latest
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}-${{ matrix.image }}:${{ github.head_ref || github.ref_name }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:${{ matrix.image }}-latest,mode=max
 
   helm-deploy-dev:
     runs-on: ubuntu-latest
