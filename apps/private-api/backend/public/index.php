@@ -2,4 +2,4 @@
 
 declare(strict_types=1);
 
-echo "Hello Api";
+echo "Hello Api v2";
