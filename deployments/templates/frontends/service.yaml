@@ -1,0 +1,47 @@
+{{- range $name, $frontend := .Values.deployments.frontends }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ $.Release.Name }}-frontend-{{ $name }}"
+  namespace: '{{ $.Release.Namespace }}'
+  labels:
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    app.kubernetes.io/component: 'frontend-{{ $name }}'
+  annotations:
+    service.kubernetes.io/topology-aware-hints: auto
+spec:
+  selector:
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    app.kubernetes.io/component: 'frontend-{{ $name }}'
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: "{{ $.Release.Name }}-frontend-{{ $name }}-nodeport"
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    app.kubernetes.io/component: 'frontend-{{ $name }}'
+  annotations:
+    service.kubernetes.io/topology-aware-hints: auto
+    traefik.ingress.kubernetes.io/service.serversscheme: h2c
+
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    app.kubernetes.io/component: 'frontend-{{ $name }}'
+  ports:
+    - name: h1
+      port: 3000
+      targetPort: h1
+    - name: h2
+      port: 443
+      targetPort: h2
+---
+{{- end }}

@@ -1,0 +1,159 @@
+{{- range $name, $backend := .Values.deployments.backends }}
+kind: Deployment
+apiVersion: apps/v1
+
+metadata:
+  name: "{{ $.Release.Name }}-backend-{{ $name }}"
+  namespace: '{{ $.Release.Namespace }}'
+  labels:
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    app.kubernetes.io/component: 'backend-{{ $name }}'
+  annotations:
+    kubernetes.io/change-cause: "{{ $backend.image }}"
+
+spec:
+  revisionHistoryLimit: {{ $.Values.deployments.revisionHistoryLimit }}
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: '{{ $.Release.Name }}'
+      app.kubernetes.io/component: 'backend-{{ $name }}'
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: '{{ $.Release.Name }}'
+        app.kubernetes.io/component: 'backend-{{ $name }}'
+
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: '{{ $.Release.Name }}'
+              app.kubernetes.io/component: 'backend-{{ $name }}'
+
+      affinity:
+        {{ toYaml $.Values.affinity | nindent 12 }}
+
+      initContainers:
+        - name: init
+          image: {{ $backend.image }}
+          command: ["sh", "-c", "cp -rp /var/www/html/* /public/"]
+          volumeMounts:
+            - name: public
+              mountPath: /public
+
+      containers:
+        - name: nginx
+          image: {{ $.Values.images.proxy }}
+          volumeMounts:
+            - name: proxy-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: proxy-config
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf
+            - name: proxy-config
+              mountPath: /etc/nginx/templates/extraconfig.conf.template
+              subPath: extraconfig.conf
+            - name: proxy-config
+              mountPath: /etc/nginx/.htpasswd
+              subPath: htpasswd
+            - name: socket
+              mountPath: /run/php
+            - name: public
+              mountPath: /var/www/html/
+          ports:
+            - name: h1
+              containerPort: 30080
+            - name: h2
+              containerPort: 8000
+          securityContext:
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - nginx
+                  - -s
+                  - quit
+          resources:
+            {{ toYaml $backend.resources.nginx | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: h1
+            initialDelaySeconds: 5
+            periodSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: h1
+            initialDelaySeconds: 5
+            periodSeconds: 1
+
+        - name: php
+          image: {{ $backend.image }}
+          securityContext:
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: socket
+              mountPath: /run/php
+            {{- if $backend.secret_volumes }}
+            - name: secret-volumes
+              mountPath: /secret-volumes
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: "{{ $.Release.Name }}-backend-{{ $name }}"
+            - secretRef:
+                name: "{{ $.Release.Name }}-backend-{{ $name }}"
+            - secretRef:
+                name: "{{ $.Release.Name }}"
+            - configMapRef:
+                name: "{{ $.Release.Name }}"
+          resources:
+            {{ toYaml $backend.resources.php | nindent 12 }}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - FCGI_CONNECT=/run/php/php-fpm.sock php-fpm-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 1
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - FCGI_CONNECT=/run/php/php-fpm.sock php-fpm-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 1
+
+      volumes:
+        - name: proxy-config
+          configMap:
+            name: "{{ $.Release.Name }}-proxy-{{ $name }}"
+        - name: socket
+        - name: public
+        # if backend.volume is set, use it
+        {{- if $backend.secret_volumes }}
+        - name: secret-volumes
+          secret:
+            secretName: "{{ $.Release.Name }}-backend-{{ $name }}-secret-volumes"
+        {{- end }}
+
+
+      imagePullSecrets:
+        {{- range $secret := $.Values.pullSecrets }}
+        - name: "{{ $secret }}"
+        {{- end }}
+
+---
+{{- end }}

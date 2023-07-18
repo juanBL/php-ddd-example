@@ -48,7 +48,6 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-
       - name: Build and push all-in-one
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
@@ -60,3 +59,155 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest,mode=max
+
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: v1.25.0
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Get kubeconfig
+        run: aws eks --region us-east-1 update-kubeconfig --name eks-cluster
+
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
+
+      - name: Check if private-api-backend deployment exists in production
+        id: api_private_deploy_exist_prod
+        run: |
+          DOES_DEPLOYMENT_EXISTS_PROD=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem >/dev/null 2>&1 && echo "1" || echo "0")
+          echo "::set-output name=api_private_deploy_exist_prod::$DOES_DEPLOYMENT_EXISTS_PROD"
+
+      - name: Check if private-api-backend deployment exists in dev
+        id: api_private_deploy_exist_dev
+        run: |
+          DOES_DEPLOYMENT_EXISTS_DEV=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev >/dev/null 2>&1 && echo "1" || echo "0")
+          echo "::set-output name=api_private_deploy_exist_dev::$DOES_DEPLOYMENT_EXISTS_DEV"
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - all-in-one
+          - private-api-backend
+
+    needs: pre-build
+
+    outputs:
+      api-private-changed: ${{ steps.pre-build.outputs.api-private-changed }}
+      api_private_deploy_exist_prod: ${{ steps.pre-build.outputs.api_private_deploy_exist_prod }}
+      api_private_deploy_exist_dev: ${{ steps.pre-build.outputs.api_private_deploy_exist_dev }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr
+            type=sha
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2.4.1
+
+      - name: Debug outputs
+        run: |
+          echo "API Private Backend changed: ${{ needs.pre-build.outputs.api-private-changed }}"
+          echo "API Private Backend deployment exists in prod: ${{ needs.pre-build.outputs.api_private_deploy_exist_prod }}"
+          echo "API Private Backend deployment exists in dev: ${{ needs.pre-build.outputs.api_private_deploy_exist_dev }}"
+
+      - name: Check if image needs to be built
+        if: |
+          (matrix.image == 'private-api-backend' && (needs.pre-build.outputs.api-private-changed == '1' ||needs.pre-build.outputs.api_private_deploy_exist_prod == '0' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0' ))
+        run: echo "API has changed or deployment does not exist. Build the image."
+
+      - name: Build and push ${{ matrix.image }}
+        if: |
+          (matrix.image == 'private-api-backend' && (needs.pre-build.outputs.api-private-changed == '1' || needs.pre-build.outputs.api_private_deploy_exist_prod == '0' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0'))
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          target: ${{ matrix.image }}
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}:latest
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}:${{ github.head_ref || github.ref_name }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.image }}-latest,mode=max
+
+  helm-deploy-dev:
+    runs-on: ubuntu-latest
+
+    needs:
+      - build
+      - pre-build
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3.5
+        with:
+          version: v3.5.4
+
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: v1.25.0
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Get kubeconfig
+        run: aws eks --region us-east-1 update-kubeconfig --name eks-cluster
+
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
+
+      - name: Set private-api-backend image as env variables
+        if: needs.pre-build.outputs.api-private-changed == '1' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0'
+        run: |
+          echo "PRIVATE_API_BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-private-api-backend:sha-$SHORT_SHA" >> $GITHUB_ENV
+
+      - name: Get current private-api-backend image
+        if: needs.pre-build.outputs.api-private-changed != '1' && needs.pre-build.outputs.api_private_deploy_exist_dev != '0'
+        run: |
+          PRIVATE_API_BACKEND_IMAGE=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev | grep Image | grep ecosystem | awk '{ print $2 }' | head -n1)
+          echo "PRIVATE_API_BACKEND_IMAGE=${PRIVATE_API_BACKEND_IMAGE}" >> $GITHUB_ENV
+
+      - name: Upgrade Helm chart
+        run: |
+          export NAME="ecosystem"
+          export NAMESPACE="ecosystem-dev"
+          helm upgrade --install \
+          $NAME \
+          deployments \
+          --namespace $NAMESPACE \
+          -f deployments/values.test.yaml \
+          --set-string deployments.backends.private-api.image=${{ env.PRIVATE_API_BACKEND_IMAGE }}

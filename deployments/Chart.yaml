@@ -1,0 +1,4 @@
+apiVersion: v2
+name: ecosystem/ecosystem-template
+type: application
+version: 0.0.0

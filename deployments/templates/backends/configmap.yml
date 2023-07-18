@@ -1,0 +1,41 @@
+{{- range $name, $backend := .Values.deployments.backends }}
+kind: ConfigMap
+apiVersion: v1
+
+metadata:
+  name: {{ $.Release.Name }}-proxy-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: proxy-{{ $name }}
+
+data:
+  nginx.conf: |-
+    {{ $.Files.Get "docker/nginx/nginx.conf" | nindent 4 }}
+
+  default.conf: |-
+    {{ $.Files.Get "docker/nginx/default.conf" | nindent 4 }}
+
+  htpasswd: |-
+    {{ $.Files.Get "docker/nginx/htpasswd" | nindent 4 }}
+
+  extraconfig.conf: |-
+    {{ $backend.proxy.extraConfig | nindent 4 }}
+
+---
+kind: ConfigMap
+apiVersion: v1
+
+metadata:
+  name: {{ $.Release.Name }}-backend-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+
+{{- $config := merge $backend.config $.Values.config}}
+data:
+  {{ toYaml $config | nindent 2 }}
+
+---
+{{- end }}

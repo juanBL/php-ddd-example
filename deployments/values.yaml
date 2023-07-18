@@ -1,0 +1,33 @@
+images:
+  proxy: nginxinc/nginx-unprivileged:1.23.3-alpine3.17
+
+deployments:
+  revisionHistoryLimit: 6
+  backends:
+    private-api:
+      image: ghcr.io/ecosystem/ecosystem-private-api-backend:nil
+      config: {}
+      proxy:
+        extraConfig: ""
+      secrets: {}
+      replicas:
+        min: 2
+        max: 3
+      resources:
+        nginx:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits: {}
+        php:
+          requests:
+            cpu: 300m
+            memory: 256Mi
+          limits: {}
+  workers: {}
+config: {}
+secrets: {}
+affinity: {}
+
+pullSecrets:
+  - registry

@@ -1,0 +1,53 @@
+{{- range $name, $frontend := .Values.deployments.frontends }}
+kind: Deployment
+apiVersion: apps/v1
+
+metadata:
+  name: "{{ $.Release.Name }}-frontend-{{ $name }}"
+  namespace: '{{ $.Release.Namespace }}'
+  labels:
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    app.kubernetes.io/component: 'frontend-{{ $name }}'
+  annotations:
+    kubernetes.io/change-cause: "{{ $frontend.image }}"
+
+spec:
+  revisionHistoryLimit: {{ $.Values.deployments.revisionHistoryLimit }}
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: '{{ $.Release.Name }}'
+      app.kubernetes.io/component: 'frontend-{{ $name }}'
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: '{{ $.Release.Name }}'
+        app.kubernetes.io/component: 'frontend-{{ $name }}'
+
+    spec:
+      imagePullSecrets:
+        {{- range $secret := $.Values.pullSecrets }}
+        - name: "{{ $secret }}"
+        {{- end }}
+
+      containers:
+        - name: ecosystem-frontend
+          image: {{ $frontend.image }}
+          ports:
+            - name: h1
+              containerPort: 3000
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      restartPolicy: Always
+
+---
+{{- end }}

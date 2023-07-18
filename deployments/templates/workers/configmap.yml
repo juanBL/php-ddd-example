@@ -1,0 +1,17 @@
+{{- range $name, $worker := .Values.deployments.workers }}
+kind: ConfigMap
+apiVersion: v1
+
+metadata:
+  name: {{ $.Release.Name }}-worker-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+
+{{- $config := merge $worker.config $.Values.config}}
+data:
+  {{ toYaml $config | nindent 2 }}
+
+---
+{{- end }}

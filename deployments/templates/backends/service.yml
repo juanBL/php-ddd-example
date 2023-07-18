@@ -1,0 +1,53 @@
+{{- range $name, $backend := .Values.deployments.backends }}
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: '{{ $name }}-{{ $.Release.Name }}'
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: backend-{{ $name }}
+  annotations:
+    service.kubernetes.io/topology-aware-hints: auto
+    traefik.ingress.kubernetes.io/service.serversscheme: h2c
+
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: backend-{{ $name }}
+  ports:
+    - name: h1
+      port: 80
+      targetPort: h1
+    - name: h2
+      port: 443
+      targetPort: h2
+---
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: '{{ $name }}-{{ $.Release.Name }}-nodeport'
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: backend-{{ $name }}
+  annotations:
+    service.kubernetes.io/topology-aware-hints: auto
+    traefik.ingress.kubernetes.io/service.serversscheme: h2c
+
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: backend-{{ $name }}
+  ports:
+    - name: h1
+      port: 80
+      targetPort: h1
+    - name: h2
+      port: 443
+      targetPort: h2
+---
+{{- end }}

@@ -1,0 +1,34 @@
+{{- range $ii, $ingress := .Values.ingresses }}
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+
+metadata:
+  name: {{ $.Release.Name }}-{{ $ii }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+  annotations: 
+    {{- toYaml $ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ $ingress.ingressClass }}
+  rules:
+    {{- range $hi, $host := $ingress.hosts }}
+    - host: {{ $host.host }}
+      http:
+        paths:
+          {{- range $pi, $path := $host.paths }}
+          - pathType: Prefix
+            path: {{ $path.path }}
+            backend:
+              service:
+                name: {{ $path.service }}
+                port:
+                {{- if $path.port }}
+                  name: {{ $path.port }}
+                {{- else }}
+                  name: h1
+                {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}
