@@ -73,7 +73,7 @@ jobs:
           aws-region: eu-west-1
 
       - name: Get kubeconfig
-        run: aws eks --region us-east-1 update-kubeconfig --name TFEKSWorkshop-cluster
+        run: aws eks --region eu-west-1 update-kubeconfig --name TFEKSWorkshop-cluster
 
       - name: Add SHORT_SHA env property with commit short sha
         run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
@@ -162,7 +162,7 @@ jobs:
           aws-region: eu-west-1
 
       - name: Get kubeconfig
-        run: aws eks --region us-east-1 update-kubeconfig --name eks-cluster
+        run: aws eks --region eu-west-1 update-kubeconfig --name eks-cluster
 
       - name: Add SHORT_SHA env property with commit short sha
         run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
@@ -274,7 +274,7 @@ jobs:
           aws-region: eu-west-1
 
       - name: Get kubeconfig
-        run: aws eks --region us-east-1 update-kubeconfig --name TFEKSWorkshop-cluster
+        run: aws eks --region eu-west-1 update-kubeconfig --name TFEKSWorkshop-cluster
 
       - name: Add SHORT_SHA env property with commit short sha
         run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
