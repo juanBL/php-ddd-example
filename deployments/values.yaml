@@ -13,17 +13,7 @@ deployments:
       replicas:
         min: 1
         max: 2
-      resources:
-        nginx:
-          requests:
-            cpu: 50m
-            memory: 32Mi
-          limits: {}
-        php:
-          requests:
-            cpu: 300m
-            memory: 256Mi
-          limits: {}
+      resources: {}
   workers: {}
 config: {}
 secrets: {}
