@@ -145,9 +145,9 @@ jobs:
           platforms: linux/amd64
           push: true
           target: all-in-one
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest,mode=max
+          tags: ${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest,mode=max
 
       - name: Set up Kubectl
         uses: azure/setup-kubectl@v3.2
