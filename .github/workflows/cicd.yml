@@ -134,7 +134,7 @@ jobs:
         run: |
           if [[ -z "${{ needs.pre-build.outputs.api-private-changed }}" ]]; then
             echo "::set-output name=api-private-changed::1"
-
+          fi
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2.4.1
 
