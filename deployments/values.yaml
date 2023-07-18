@@ -11,8 +11,8 @@ deployments:
         extraConfig: ""
       secrets: {}
       replicas:
-        min: 2
-        max: 3
+        min: 1
+        max: 1
       resources:
         nginx:
           requests:
