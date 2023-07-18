@@ -90,6 +90,95 @@ jobs:
           DOES_DEPLOYMENT_EXISTS_DEV=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev >/dev/null 2>&1 && echo "1" || echo "0")
           echo "::set-output name=api_private_deploy_exist_dev::$DOES_DEPLOYMENT_EXISTS_DEV"
 
+
+  pre-build:
+    runs-on: ubuntu-latest
+
+    needs: test
+
+    outputs:
+      api-private-changed: ${{ steps.api_private_changed.outputs.api-private-changed }}
+      api_private_deploy_exist_prod: ${{ steps.api_private_deploy_exist_prod.outputs.api_private_deploy_exist_prod }}
+      api_private_deploy_exist_dev: ${{ steps.api_private_deploy_exist_dev.outputs.api_private_deploy_exist_dev }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check API Private changes
+        id: api_private_changed
+        run: |
+          set +e
+          changed_files=$(git diff --name-only HEAD~1 HEAD | grep "apps/private-api")
+          exit_code=$?
+          set -e
+          if [[ $exit_code -eq 0 ]]; then
+            echo "::set-output name=api-private-changed::1"
+          elif [[ $exit_code -eq 1 ]]; then
+            echo "::set-output name=api-private-changed::0"
+          else
+            echo "Error occurred while checking API Private changes."
+            exit 1
+          fi
+
+      - name: Set change outputs for new application
+        id: set_change_outputs
+        run: |
+          if [[ -z "${{ needs.pre-build.outputs.api-private-changed }}" ]]; then
+            echo "::set-output name=api-private-changed::1"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2.4.1
+
+      - name: Build and push all-in-one
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          target: all-in-one
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:all-in-one-latest,mode=max
+
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: v1.25.0
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Get kubeconfig
+        run: aws eks --region us-east-1 update-kubeconfig --name eks-cluster
+
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
+
+      - name: Check if private-api-backend deployment exists in production
+        id: api_private_deploy_exist_prod
+        run: |
+          DOES_DEPLOYMENT_EXISTS_PROD=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem >/dev/null 2>&1 && echo "1" || echo "0")
+          echo "::set-output name=api_private_deploy_exist_prod::$DOES_DEPLOYMENT_EXISTS_PROD"
+
+      - name: Check if private-api-backend deployment exists in dev
+        id: api_private_deploy_exist_dev
+        run: |
+          DOES_DEPLOYMENT_EXISTS_DEV=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev >/dev/null 2>&1 && echo "1" || echo "0")
+          echo "::set-output name=api_private_deploy_exist_dev::$DOES_DEPLOYMENT_EXISTS_DEV"
+
   build:
     runs-on: ubuntu-latest
     strategy:
