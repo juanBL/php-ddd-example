@@ -267,6 +267,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: set lower case gh repository name
+        run: |
+          echo "GH_LOWER_CASE=${GH_REPO_LOWER_CASE,,}" >>${GITHUB_ENV}
+        env:
+          GH_REPO_LOWER_CASE: '${{ github.repository }}'
+
       - name: Set up Helm
         uses: azure/setup-helm@v3.5
         with:
@@ -293,7 +299,7 @@ jobs:
       - name: Set private-api-backend image as env variables
         if: needs.pre-build.outputs.api-private-changed == '1' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0'
         run: |
-          echo "PRIVATE_API_BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-private-api-backend:sha-$SHORT_SHA" >> $GITHUB_ENV
+          echo "PRIVATE_API_BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}-private-api-backend:sha-$SHORT_SHA" >> $GITHUB_ENV
 
       - name: Get current private-api-backend image
         if: needs.pre-build.outputs.api-private-changed != '1' && needs.pre-build.outputs.api_private_deploy_exist_dev != '0'
