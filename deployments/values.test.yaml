@@ -1,7 +1,7 @@
 ingresses:
   - ingressClass: alb
     annotations:
-      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:532357414065:certificate/23a63c3e-0833-4169-b283-65c0bd115b6d
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:532357414065:certificate/23a63c3e-0833-4169-b283-65c0bd115b6d
       alb.ingress.kubernetes.io/ssl-redirect: "443"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
       alb.ingress.kubernetes.io/scheme: internal
