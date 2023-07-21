@@ -35,7 +35,7 @@ jobs:
 
       - name: Get working directory
         run: |
-          CODE_DIR=$(git --no-pager diff --diff-filter=d --raw --name-only $GITHUB_BASE_REF origin/$GITHUB_HEAD_REF | egrep -E "\.tf\$|^\/test|^\/pre|^\/pro|^\/all" | grep ".*\/" -o | uniq)
+          CODE_DIR=$(git --no-pager diff --diff-filter=d --raw --name-only origin/main origin/$GITHUB_HEAD_REF | egrep -E "\.tf\$|^\/test|^\/pre|^\/pro|^\/all" | grep ".*\/" -o | uniq)
           echo "WORKING_DIR=$CODE_DIR" >> $GITHUB_ENV
 
       # Generate Infracost JSON file as the baseline.
