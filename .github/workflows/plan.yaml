@@ -39,6 +39,13 @@ jobs:
           echo "WORKING_DIR=$CODE_DIR" >> $GITHUB_ENV
 
       # Generate Infracost JSON file as the baseline.
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v2
+        # See https://github.com/infracost/actions/tree/master/setup for other inputs
+        # If you can't use this action, see Docker images in https://infracost.io/cicd
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
       - name: Generate Infracost cost estimate baseline
         id: infracost-baseline
         run: |
