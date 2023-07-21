@@ -4,13 +4,19 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: write-all
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   terraform:
+    name: 'Terraform Validate'
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         shell: bash
