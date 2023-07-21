@@ -17,10 +17,15 @@ jobs:
 
     steps:
       # # Checkout the base branch of the pull request (e.g. main/master).
-      - name: Checkout base branch
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          ref: '${{ github.event.pull_request.base.ref }}'
+          fetch-depth: 2
+
+      - name: Check out base ref
+        run: |
+          git fetch --no-tags --depth=1 origin $GITHUB_BASE_REF
+          git fetch --no-tags --depth=1 origin $GITHUB_HEAD_REF
 
       - name: Get working directory
         run: |
