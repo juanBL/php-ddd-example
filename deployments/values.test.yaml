@@ -1,14 +1,14 @@
 ingresses:
   - ingressClass: alb
     annotations:
-      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:532357414065:certificate/23a63c3e-0833-4169-b283-65c0bd115b6d
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:532357414065:certificate/23a63c3e-0833-4169-b283-65c0bd115b6d
       alb.ingress.kubernetes.io/ssl-redirect: "443"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
       alb.ingress.kubernetes.io/scheme: internal
       alb.ingress.kubernetes.io/healthcheck-path: /ping
-      alb.ingress.kubernetes.io/subnets: subnet-0cb3ac3401806157b, subnet-00f725c64e5f7fe04
+      alb.ingress.kubernetes.io/subnets: subnet-093fa8e9a7db61f55, subnet-096e9724f135b73be
     hosts:
-      - host: api-test.warzone-meta-loadouts.com
+      - host: api.warzone-meta-loadouts.com
         paths:
           - path: /
             service: private-api-ecosystem-nodeport

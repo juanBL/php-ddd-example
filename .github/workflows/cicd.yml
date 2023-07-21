@@ -89,231 +89,87 @@ jobs:
           DOES_DEPLOYMENT_EXISTS_DEV=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev >/dev/null 2>&1 && echo "1" || echo "0")
           echo "::set-output name=api_private_deploy_exist_dev::$DOES_DEPLOYMENT_EXISTS_DEV"
 
-
-  pre-build:
+  terraform:
     runs-on: ubuntu-latest
-
-    needs: test
-
-    outputs:
-      api-private-changed: ${{ steps.api_private_changed.outputs.api-private-changed }}
-      api_private_deploy_exist_prod: ${{ steps.api_private_deploy_exist_prod.outputs.api_private_deploy_exist_prod }}
-      api_private_deploy_exist_dev: ${{ steps.api_private_deploy_exist_dev.outputs.api_private_deploy_exist_dev }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           fetch-depth: 2
-      - name: set lower case gh repository name
-        run: |
-          echo "GH_LOWER_CASE=${GH_REPO_LOWER_CASE,,}" >>${GITHUB_ENV}
-        env:
-          GH_REPO_LOWER_CASE: '${{ github.repository }}'
 
-      - name: Log in to the Container registry
-        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      - name: Check out base ref
+        run: |
+          git fetch --no-tags --depth=1 origin $GITHUB_BASE_REF
+          git fetch --no-tags --depth=1 origin $GITHUB_HEAD_REF
+
+      - name: Get working directory
+        run: |
+          CODE_DIR=$(git --no-pager diff --diff-filter=d --raw --name-only origin/$GITHUB_BASE_REF origin/$GITHUB_HEAD_REF | egrep -E "\.tf\$|^\/test|^\/pre|^\/pro|^\/all" | grep ".*\/" -o | uniq)
+          echo "WORKING_DIR=$CODE_DIR" >> $GITHUB_ENV
+
+      #Setup
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2.0.3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          terraform_version: $TF_VERSION
 
-      - name: Check API Private changes
-        id: api_private_changed
-        run: |
-          set +e
-          changed_files=$(git diff --name-only HEAD~1 HEAD | grep "apps/private-api")
-          exit_code=$?
-          set -e
-          if [[ $exit_code -eq 0 ]]; then
-            echo "::set-output name=api-private-changed::1"
-          elif [[ $exit_code -eq 1 ]]; then
-            echo "::set-output name=api-private-changed::0"
-          else
-            echo "Error occurred while checking API Private changes."
-            exit 1
-          fi
-
-      - name: Set change outputs for new application
-        id: set_change_outputs
-        run: |
-          if [[ -z "${{ needs.pre-build.outputs.api-private-changed }}" ]]; then
-            echo "::set-output name=api-private-changed::1"
-          fi
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2.4.1
-
-      - name: Build and push all-in-one
-        uses: docker/build-push-action@v2
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v2
+        # See https://github.com/infracost/actions/tree/master/setup for other inputs
+        # If you can't use this action, see Docker images in https://infracost.io/cicd
         with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          target: all-in-one
-          tags: ${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-${{ github.sha }},${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest,mode=max
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
 
-      - name: Set up Kubectl
-        uses: azure/setup-kubectl@v3.2
+      - name: Verify Terraform version
+        run: terraform --version
+
+      #Run
+      - name: Post Plan
+        uses: robburger/terraform-pr-commenter@v1
         with:
-          version: v1.25.0
+          commenter_type: plan
+          commenter_input: ${{ format('{0}{1}', steps.plan.outputs.stdout, steps.plan.outputs.stderr) }}
+          commenter_exitcode: ${{ steps.plan.outputs.exitcode }}
 
-      - name: Set up AWS CLI
-        uses: aws-actions/configure-aws-credentials@v1
+      # infracost
+
+      - name: Checkout base branch
+        uses: actions/checkout@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
+          ref: '${{ github.event.pull_request.base.ref }}'
 
-      - name: Get kubeconfig
-        run: aws eks --region us-west-2 update-kubeconfig --name ecosystem-template-cluster
-
-      - name: Add SHORT_SHA env property with commit short sha
-        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
-
-      - name: Check if private-api-backend deployment exists in production
-        id: api_private_deploy_exist_prod
+      # Generate Infracost JSON file as the baseline.
+      - name: Generate Infracost cost estimate baseline
+        id: infracost-baseline
         run: |
-          DOES_DEPLOYMENT_EXISTS_PROD=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem >/dev/null 2>&1 && echo "1" || echo "0")
-          echo "::set-output name=api_private_deploy_exist_prod::$DOES_DEPLOYMENT_EXISTS_PROD"
+          mkdir -p ${{ env.WORKING_DIR }}
+          touch ${{ env.WORKING_DIR }}main.tf
+          infracost breakdown --path=${{ env.WORKING_DIR }} \
+                              --format=json \
+                              --out-file=/tmp/infracost-base.json \
+                              --terraform-force-cli
 
-      - name: Check if private-api-backend deployment exists in dev
-        id: api_private_deploy_exist_dev
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+
+      - name: Generate Infracost diff
         run: |
-          DOES_DEPLOYMENT_EXISTS_DEV=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev >/dev/null 2>&1 && echo "1" || echo "0")
-          echo "::set-output name=api_private_deploy_exist_dev::$DOES_DEPLOYMENT_EXISTS_DEV"
+          infracost diff --path=${{ env.WORKING_DIR }} \
+                          --format=json \
+                          --compare-to=/tmp/infracost-base.json \
+                          --out-file=/tmp/infracost.json
+          infracost output --path /tmp/infracost.json --format table --out-file /tmp/report.table
+          cat /tmp/report.table
 
-
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image:
-          - all-in-one
-          - private-api-backend
-
-    needs: pre-build
-
-    outputs:
-      api-private-changed: ${{ steps.pre-build.outputs.api-private-changed }}
-      api_private_deploy_exist_prod: ${{ steps.pre-build.outputs.api_private_deploy_exist_prod }}
-      api_private_deploy_exist_dev: ${{ steps.pre-build.outputs.api_private_deploy_exist_dev }}
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: set lower case gh repository name
+      - name: Post Infracost comment
         run: |
-          echo "GH_LOWER_CASE=${GH_REPO_LOWER_CASE,,}" >>${GITHUB_ENV}
-        env:
-          GH_REPO_LOWER_CASE: '${{ github.repository }}'
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image }}
-          tags: |
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=tag
-            type=ref,event=pr
-            type=sha
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2.4.1
-
-      - name: Debug outputs
-        run: |
-          echo "API Private Backend changed: ${{ needs.pre-build.outputs.api-private-changed }}"
-          echo "API Private Backend deployment exists in prod: ${{ needs.pre-build.outputs.api_private_deploy_exist_prod }}"
-          echo "API Private Backend deployment exists in dev: ${{ needs.pre-build.outputs.api_private_deploy_exist_dev }}"
-
-      - name: Check if image needs to be built
-        if: |
-          (matrix.image == 'private-api-backend' && (needs.pre-build.outputs.api-private-changed == '1' ||needs.pre-build.outputs.api_private_deploy_exist_prod == '0' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0' ))
-        run: echo "API has changed or deployment does not exist. Build the image."
-
-      - name: Build and push ${{ matrix.image }}
-        if: |
-          (matrix.image == 'private-api-backend' && (needs.pre-build.outputs.api-private-changed == '1' || needs.pre-build.outputs.api_private_deploy_exist_prod == '0' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0'))
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          target: ${{ matrix.image }}
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:all-in-one-latest
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}-${{ matrix.image }}:latest
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}-${{ matrix.image }}:${{ github.head_ref || github.ref_name }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}:${{ matrix.image }}-latest,mode=max
-
-  helm-deploy-dev:
-    runs-on: ubuntu-latest
-
-    needs:
-      - build
-      - pre-build
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: set lower case gh repository name
-        run: |
-          echo "GH_LOWER_CASE=${GH_REPO_LOWER_CASE,,}" >>${GITHUB_ENV}
-        env:
-          GH_REPO_LOWER_CASE: '${{ github.repository }}'
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v3.5
-        with:
-          version: v3.5.4
-
-      - name: Set up Kubectl
-        uses: azure/setup-kubectl@v3.2
-        with:
-          version: v1.25.0
-
-      - name: Set up AWS CLI
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-
-      - name: Get kubeconfig
-        run: aws eks --region us-west-2 update-kubeconfig --name ecosystem-template-cluster
-
-      - name: Add SHORT_SHA env property with commit short sha
-        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
-
-      - name: Set private-api-backend image as env variables
-        if: needs.pre-build.outputs.api-private-changed == '1' || needs.pre-build.outputs.api_private_deploy_exist_dev == '0'
-        run: |
-          echo "PRIVATE_API_BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.GH_LOWER_CASE }}-private-api-backend:sha-$SHORT_SHA" >> $GITHUB_ENV
-
-      - name: Get current private-api-backend image
-        if: needs.pre-build.outputs.api-private-changed != '1' && needs.pre-build.outputs.api_private_deploy_exist_dev != '0'
-        run: |
-          PRIVATE_API_BACKEND_IMAGE=$(kubectl describe deployment ecosystem-backend-private-api -n ecosystem-dev | grep Image | grep ecosystem | awk '{ print $2 }' | head -n1)
-          echo "PRIVATE_API_BACKEND_IMAGE=${PRIVATE_API_BACKEND_IMAGE}" >> $GITHUB_ENV
-
-      - name: Upgrade Helm chart
-        run: |
-          export NAME="ecosystem"
-          export NAMESPACE="ecosystem-dev"
-          helm upgrade --install \
-          $NAME \
-          deployments \
-          --namespace $NAMESPACE \
-          -f deployments/values.test.yaml \
-          --set-string deployments.backends.private-api.image=${{ env.PRIVATE_API_BACKEND_IMAGE }}
+          infracost comment github --path /tmp/infracost.json \
+                                    --repo $GITHUB_REPOSITORY  \
+                                    --github-token ${{ github.token }} \
+                                    --pull-request ${{ github.event.pull_request.number }} \
+                                    --behavior update

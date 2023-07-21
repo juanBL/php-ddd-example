@@ -13,7 +13,13 @@ deployments:
       replicas:
         min: 1
         max: 2
-      resources: {}
+      resources:
+        nginx:
+          requests: { }
+          limits: { }
+        php:
+          requests: { }
+          limits: { }
   workers: {}
 config: {}
 secrets: {}
