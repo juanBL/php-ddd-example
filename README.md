@@ -48,3 +48,4 @@ A visual representation of the Ecosystem infrastructure can be found in the "dia
 ### Updating the Infrastructure Diagram
 
 In the event of any modifications to the Ecosystem infrastructure diagram, it is crucial to update it to reflect the changes accurately. To update the diagram execute the following command: ``make update-diagram ``
+
